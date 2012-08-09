@@ -23,6 +23,7 @@ TTT.Views.GridView = Backbone.View.extend(
 		this.model.bind("change:humanMoves", this.render).bind("change:computerMoves", this.render);
 		this.model.bind("change:currPlayer", this.setupPlayer);
 		this.model.bind("change:gameOver", this.endTheGame);
+
 		this.setupPlayer();
 		this.render();
 	},
@@ -41,46 +42,55 @@ TTT.Views.GridView = Backbone.View.extend(
 			var player = TTT.players[i],
 				movesList = this.model.get(player+'Moves');
 			$.each(movesList, function(j, coord) {
-				var rowNum = coord[0], colNum = coord[1];
+				var rowNum = coord[0],
+					colNum = coord[1];
 				$('.box.row'+rowNum+'.col'+colNum).addClass('selected').text(TTT.letters[i]);
-			});			
+			});
 		}
 	},
 
 	onClickBox : function(evt)
 	{
-		// add to curr player's moves
-		var rowNum, colNum;
-		var classnames = $(evt.currentTarget).attr('class').split(' ');
-		$.each(classnames, function(i, classname) {
-			
-			if (classname.indexOf('row') !== -1) {
-				var matches = classname.match(/\d+$/);
-				if (matches)  rowNum = matches[0]*1;
-			}
-			else if (classname.indexOf('col') !== -1) {
-				var matches = classname.match(/\d+$/);
-				if (matches)  colNum = matches[0]*1;
-			}
+		var $box = $(evt.currentTarget);
+		
+		var rowNum = $box.data('row'),
+			colNum = $box.data('col');
+
+		var humanNotTaken = true,
+			computerNotTaken = true;
+
+		$.each(this.model.get('humanMoves'), function(i, move) {
+			if (move[0] === rowNum && move[1] === colNum)
+				humanNotTaken = false;
 		});
 
-		this.model.get('humanMoves').push([rowNum, colNum]);
+		$.each(this.model.get('computerMoves'), function(i, move) {
+			if (move[0] === rowNum && move[1] === colNum)
+				computerNotTaken = false;
+		});
 
-		this.render();
+		if (humanNotTaken && computerNotTaken) {
+			this.model.get('humanMoves').push([rowNum, colNum]);
 
-		this.model.set('currPlayer', 1);
+			this.render();
+
+			this.model.set('currPlayer', 1);
+		}
 	},
 
 	setupPlayer : function() {
-		var currPlayer = this.model.get('currPlayer');
-		this._letter = TTT.letters[currPlayer];
-		var statusMsg = currPlayer ? 'Computer\'s' : 'Your';
-		this._status.text(statusMsg + ' turn.');
+		if (!this.model.get('gameOver')) {
+			var currPlayer = this.model.get('currPlayer');
+			this._letter = TTT.letters[currPlayer];
+			var statusMsg = currPlayer ? 'Computer\'s' : 'Your';
+			this._status.text(statusMsg + ' turn.');
+		}
 	},
 
 	onMouseEnter : function(evt) {
-		if (this.model.get('currPlayer') === 0)
-			$(evt.currentTarget).addClass('selected').text(this._letter);
+		var $box = $(evt.currentTarget);
+		if (this.model.get('currPlayer') === 0 && !$box.hasClass('selected'))
+			$box.addClass('selected').text(this._letter);
 	},
 
 	onMouseLeave : function(evt) {
@@ -89,7 +99,14 @@ TTT.Views.GridView = Backbone.View.extend(
 	},
 
 	endTheGame : function() {
-
+		console.log('ending the game');
+		var winnerNum = this.model.get('winner');
+		if (winnerNum !== -1) {
+			var winner = TTT.players[winnerNum];
+			this._status.text('Game over. ' + this.model.get(winner + 'Name') + ' wins!');
+		}
+		else
+			this._status.text('It was a tie.  GG');
 	}
 });
 
@@ -101,7 +118,8 @@ TTT.Models.Game = Backbone.Model.extend(
 		computerMoves: [],
 		humanName: 'You',
 		computerName: '',
-		gameOver: false
+		gameOver: false,
+		winner: -1
 	},
 
 	initialize : function() {
@@ -112,48 +130,102 @@ TTT.Models.Game = Backbone.Model.extend(
 		this.bind('change:currPlayer', this.doTurn);
 	},
 
-	doTurn : function() {
-		// check if previous player won
-		if (this.hasWon()) {
-			this.set('gameOver', true);
-		}
-
-		if (this.currPlayer) {
-			// pick random box
-
-			// 
+	doTurn : function()
+	{
+		console.log('Changing player.  currPlayer is '+ this.get('currPlayer'));
+		if (!this.get('gameOver'))
+		{
+			var currPlayer = this.get('currPlayer');
+			// check if previous player won
+			var otherPlayerNum = currPlayer ^ 1;
+			if (this.hasWon(otherPlayerNum))
+				this.set({ gameOver: true, winner: otherPlayerNum });
+			else {
+				var numMoves = this.get('humanMoves').length + this.get('computerMoves').length;
+				if ( numMoves === TTT.numRows*TTT.numCols )
+					this.set({ gameOver: true });
+				else {
+					if (currPlayer)
+						this.doComputerTurn();
+				}
+			}
 		}
 	},
 
-	// 
-	hasWon : function() {
-		var gameOver = false,
-			i = 0, j = 0;
+	doComputerTurn : function()
+	{
+		console.log('doing comp turn');
+		// pick random unselected box
+		var rowNum, colNum;
 
-		/*for (i; i < TTT.numRows; i++) {
-			this.checkRowComplete(i);
+		while (true) {
+			rowNum = Math.floor((Math.random()*TTT.numRows)),
+			colNum = Math.floor((Math.random()*TTT.numCols));
+
+			var humanNotTaken = true,
+				computerNotTaken = true;
+
+			$.each(this.get('humanMoves'), function(i, move) {
+				if (move[0] === rowNum && move[1] === colNum)
+					humanNotTaken = false;
+			});
+
+			$.each(this.get('computerMoves'), function(i, move) {
+				if (move[0] === rowNum && move[1] === colNum)
+					computerNotTaken = false;
+			});
+			if ( humanNotTaken && computerNotTaken )
+				break;
 		}
-		for (j; j < TTT.numCols; j++) {
-			this.checkColumnComplete(j);
-		}
-		this.checkDiagonalsComplete();*/
-	}
+		this.get('computerMoves').push([rowNum, colNum]);
+		this.set('currPlayer', 0);
+	},
 
-});
-
-/*
-TTT.Models.Computer = MyBackbone.Models.Player.extend(
-{
 	
-	initialize : function() {
-		_.bindAll(this);
-		computerNames = [ 'C3PO', 'Bender', 'Karel', 'R2D2', 'A Cylon', 'GLaDOS' ];
-		this.name = possibleNames[Math.floor((Math.random()*possibleNames.length)+1)];
+	hasWon : function(playerNum)
+	{
+		var playerMoves = this.get(TTT.players[playerNum]+'Moves'),
+			byRows = [ [], [], [] ],
+			byCols = [ [], [], [] ],
+			byDiagonals = [ [], [] ];		// [0,0  1,1  2,2]   [0,2  1,1  2,0]
 
+		// categorize player's moves by rows, columns and diagonals
+		$.each(playerMoves, function(i, coords) {
+			
+			var rowNum = coords[0],
+				colNum = coords[1];
+			
+			byRows[rowNum].push(coords);
+			byCols[colNum].push(coords);
+
+			if (rowNum === colNum || Math.abs(rowNum - colNum) === 2) {
+				// add to diagonals
+				if (rowNum === colNum || rowNum === 1) {
+					byDiagonals[0].push(coords);
+				}
+				if (Math.abs(rowNum - colNum) === 2 || rowNum === 1) {
+					byDiagonals[1].push(coords);
+				}
+			}
+		});
+
+		return this.isFilled([byRows, byCols, byDiagonals]);
 	},
 
-	doTurn : function() {
-
+	// checks whether any of the rows, columns or diagonals on the grid are filled
+	isFilled : function(arr) {
+		var result = false;
+		$.each(arr, function(i, byArray) {
+			$.each(byArray, function(j, movesInThatDimension) {
+				if (movesInThatDimension.length === TTT.numCols) {
+					result = true;
+					return;
+				}
+			});
+			if (result) return;
+		});
+		
+		return result;
 	}
+
 });
-*/
