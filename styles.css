@@ -1,0 +1,19 @@
+#grid {
+	position: relative;
+}
+.box {
+	height: 100px;
+	width: 100px;
+	line-height: 100px;
+	font-size: 100px;
+	background-color: #787878;
+	position: absolute;
+	left: 0px;
+	top: 0px;
+	border: 1px solid black;
+}
+.box.row1 { top: 100px; }
+.box.row2 { top: 200px; }
+.box.col1 { left: 100px; }
+.box.col2 { left: 200px; }
+.box.selected { background-color: #fff; }
