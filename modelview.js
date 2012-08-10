@@ -55,20 +55,22 @@ TTT.Views.GridView = Backbone.View.extend(
 
 	onClickBox : function(evt)
 	{
-		var $box = $(evt.currentTarget),
-			grid = this.model.get('grid');;
-		
-		var rowNum = $box.data('row'),
-			colNum = $box.data('col');
+		if (!this.get('gameOver')) {
+			var $box = $(evt.currentTarget),
+				grid = this.model.get('grid');;
+			
+			var rowNum = $box.data('row'),
+				colNum = $box.data('col');
 
-		if ( grid[rowNum][colNum] === TTT.NONE ) {
-			grid[rowNum][colNum] = TTT.HUMAN;
-			this.model.unset('grid', { silent: true });
-			this.model.set({
-				grid: grid,
-				currPlayer: TTT.COMPUTER,
-				numTurns: 1 + this.model.get('numTurns')
-			});
+			if ( grid[rowNum][colNum] === TTT.NONE ) {
+				grid[rowNum][colNum] = TTT.HUMAN;
+				this.model.unset('grid', { silent: true });
+				this.model.set({
+					grid: grid,
+					currPlayer: TTT.COMPUTER,
+					numTurns: 1 + this.model.get('numTurns')
+				});
+			}
 		}
 	},
 
