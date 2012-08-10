@@ -1,12 +1,21 @@
 <html>
 <head>
 	<link rel="stylesheet" href="styles.css" type="text/css" />
+	<link rel="stylesheet" href="bootstrap.min.css" type="text/css" />
 </head>
 <body>
 	<div id="main">
-		<h2>Tic Tac Toe</h2>
+		<h1>Tic Tac Toe</h1>
 
-		<p id="status">Your turn.</p>
+		<p id="controls">
+          	<select id="playerselect">
+            	<option value="0">I want to start first.</option>
+            	<option value="1">The computer can start first.</option>
+          	</select>
+			<button class="btn btn-primary btn-large">Play Game</button>
+		</p>
+
+		<p id="status" class="lead"></p>
 
 		<div id="grid">
 			<div class="box row0 col0" data-row="0" data-col="0"></div>
@@ -30,6 +39,7 @@ $(document).ready(function()
 {
 	TTT.game = new TTT.Models.Game();
 	TTT.gridView = new TTT.Views.GridView({ el: '#grid', model: TTT.game });
+	TTT.controlsView = new TTT.Views.ControlsView({ el: '#controls', model: TTT.game });
 
 });
 

@@ -7,7 +7,8 @@ TTT = {
 	numCols: 3,
 	HUMAN: 0,
 	COMPUTER: 1,
-	NONE: -1
+	NONE: -1,
+	TIE: -2
 };
 
 TTT.Views.GridView = Backbone.View.extend(
@@ -15,30 +16,31 @@ TTT.Views.GridView = Backbone.View.extend(
 	events: {
 		"click .box" : "onClickBox",
 		"mouseenter .box" : "onMouseEnter",
-		"mouseleave .box" : "onMouseLeave"
+		"mouseleave .box" : "onMouseLeave",
 	},
 
 	initialize: function() {
 		_.bindAll(this);
 		
 		this._status = $('#status');
-		this._grid = this.model.get('grid');
 
 		this.model.bind("change:grid", this.render);
 		this.model.bind("change:currPlayer", this.setupPlayer);
-		this.model.bind("change:gameOver", this.endTheGame);
+		this.model.bind("change:gameOver", this.manageGame);
 
 		this.setupPlayer();
 		this.render();
+		this.manageGame();
 	},
 
-	render : function(arg1, arg2, arg3)
+	render : function()
 	{
-		var row, col;
+		var row, col,
+			grid = this.model.get('grid');
 		for (row = 0; row < TTT.numRows; row++) {
 			for (col = 0; col < TTT.numCols; col++)
 			{
-				var player = this._grid[row][col],
+				var player = grid[row][col],
 					$box = $('#grid .box.row'+row+'.col'+col);
 				if (player === TTT.NONE) {
 					$box.removeClass('selected').text('');
@@ -53,22 +55,25 @@ TTT.Views.GridView = Backbone.View.extend(
 
 	onClickBox : function(evt)
 	{
-		var $box = $(evt.currentTarget);
+		var $box = $(evt.currentTarget),
+			grid = this.model.get('grid');;
 		
 		var rowNum = $box.data('row'),
 			colNum = $box.data('col');
 
-		if ( this._grid[rowNum][colNum] === TTT.NONE ) {
-			this._grid[rowNum][colNum] = TTT.HUMAN;
-
+		if ( grid[rowNum][colNum] === TTT.NONE ) {
+			grid[rowNum][colNum] = TTT.HUMAN;
+			this.model.unset('grid', { silent: true });
 			this.model.set({
+				grid: grid,
 				currPlayer: TTT.COMPUTER,
 				numTurns: 1 + this.model.get('numTurns')
 			});
 		}
 	},
 
-	setupPlayer : function() {
+	setupPlayer : function()
+	{
 		if (!this.model.get('gameOver')) {
 			var currPlayer = this.model.get('currPlayer');
 			this._letter = TTT.letters[currPlayer];
@@ -88,27 +93,64 @@ TTT.Views.GridView = Backbone.View.extend(
 			this.render();
 	},
 
-	endTheGame : function() {
-		this.render();
-		var winnerNum = this.model.get('winner');
-		if (winnerNum !== TTT.NONE) {
-			var winner = TTT.players[winnerNum];
-			this._status.text('Game over. ' + this.model.get(winner + 'Name') + ' wins!');
+	manageGame : function() {
+		if (this.model.get('gameOver'))
+		{
+			this.render();
+			var winnerNum = this.model.get('winner');
+			if ( winnerNum === TTT.TIE )
+				this._status.text('It was a tie.  GG');
+			else if (winnerNum !== TTT.NONE) {
+				var winner = TTT.players[winnerNum];
+				this._status.text('Game over. ' + this.model.get(winner + 'Name') + ' wins!');
+			}
+			else
+				this._status.text('');
+			$(this.el).addClass('disabled');
+			$('button.btn-primary').removeClass('disabled');
 		}
-		else
-			this._status.text('It was a tie.  GG');
+		else {
+			$(this.el).removeClass('disabled');
+			this.setupPlayer();
+		}
+	}
+
+	
+});
+
+
+TTT.Views.ControlsView = Backbone.View.extend({
+	events: {
+		"click button.btn.btn-primary" : "clickStartGame"
+	},
+
+	initialize: function () {
+		_.bindAll(this);
+
+		this._playerselect = $('#playerselect');
+	},
+
+	clickStartGame : function(evt)
+	{
+		// reset model
+		var newGrid = new Array([-1, -1, -1], [-1, -1, -1], [-1, -1, -1]);
+		this.model.set(this.model.defaults);
+		this.model.set({ gameOver: false, grid: newGrid, currPlayer: 1*this._playerselect.val() });
+		$(evt.currentTarget).addClass('disabled');
+		this._playerselect.addClass('disabled');
 	}
 });
+
 
 TTT.Models.Game = Backbone.Model.extend(
 {
 	defaults: {
-		currPlayer: 1,
-		grid: [ [-1, -1, -1], [-1, -1, -1], [-1, -1, -1] ],
+		currPlayer: TTT.NONE,
+		grid: [[-1, -1, -1], [-1, -1, -1], [-1, -1, -1]],
 		numTurns: 0,
 		humanName: 'You',
 		computerName: '',
-		gameOver: false,
+		gameOver: true,
 		winner: TTT.NONE
 	},
 
@@ -117,41 +159,47 @@ TTT.Models.Game = Backbone.Model.extend(
 		computerNames = [ 'C3PO', 'Bender', 'Karel', 'R2D2', 'A Cylon', 'GLaDOS' ];
 		this.set('computerName', computerNames[Math.floor((Math.random()*computerNames.length))]);
 
-		this._grid = this.get('grid');
-
 		this.bind('change:currPlayer', this.doTurn);
-		this.bind('change:numTurns', this.checkGameOver);
-		this.doTurn();
 	},
 
 	doTurn : function()
 	{
+		var that = this;
 		if ( this.gameIsOver() ) {
 			this.set('gameOver', true);
 		}
 		else if (this.get('currPlayer') === TTT.COMPUTER)
-			this.doComputerTurn();
+			setTimeout(that.doComputerTurn, 1000);
 	},
 
 	doComputerTurn : function()
 	{
 		// pick random unselected box
-		var rowNum, colNum;
+		var rowNum, colNum,
+			grid = this.get('grid');
 
 		while (true) {
 			rowNum = Math.floor((Math.random()*TTT.numRows)),
 			colNum = Math.floor((Math.random()*TTT.numCols));
 
-			if ( this._grid[rowNum][colNum] === TTT.NONE )
+			if ( grid[rowNum][colNum] === TTT.NONE )
 				break;
 		}
-		this._grid[rowNum][colNum] = TTT.COMPUTER;
-		this.set('numTurns', 1 + this.get('numTurns'));
-		this.set('currPlayer', TTT.HUMAN);
+		
+		grid[rowNum][colNum] = TTT.COMPUTER;
+		this.unset('grid', { silent: true });
+		this.set({
+			grid: grid,
+			numTurns: 1 + this.get('numTurns'),
+			currPlayer: TTT.HUMAN
+		});
 	},
 
 	gameIsOver : function()
 	{
+		if (this.get('gameOver'))
+			return true;
+
 		// check if either player won
 		for (var i = 0; i < TTT.players.length; i++) {
 			if ( this.hasWon(i) ) {
@@ -160,13 +208,16 @@ TTT.Models.Game = Backbone.Model.extend(
 			}
 		}
 
-		if ( this.get('numTurns') >= TTT.numRows*TTT.numCols )
+		if ( this.get('numTurns') >= TTT.numRows*TTT.numCols ) {
+			this.set('winner', TTT.TIE);
 			return true;
+		}
+			
 	},
 	
 	hasWon : function(playerNum)
 	{
-		var playerMoves = this.get(TTT.players[playerNum]+'Moves'),
+		var grid = this.get('grid'),
 			byRows = [ [], [], [] ],
 			byCols = [ [], [], [] ],
 			byDiagonals = [ [], [] ];		// [0,0  1,1  2,2]   [0,2  1,1  2,0]
@@ -177,7 +228,7 @@ TTT.Models.Game = Backbone.Model.extend(
 		for (row = 0; row < TTT.numRows; row++) {
 			for (col = 0; col < TTT.numCols; col++)
 			{
-				var player = this._grid[row][col];
+				var player = grid[row][col];
 				if (player === playerNum) {
 					byRows[row].push(true);
 					byCols[col].push(true);

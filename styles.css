@@ -1,19 +1,36 @@
+body {
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+	color: #333;
+}
+
+#main {
+	width: 325px;
+	margin: 0 auto;
+}
+#controls {
+	margin-top: 30px;
+}
+#status { height: 16px; margin-top: 20px; }
 #grid {
 	position: relative;
 }
+#grid.disabled { opacity: 0.5; }
 .box {
 	height: 100px;
 	width: 100px;
 	line-height: 100px;
 	font-size: 100px;
-	background-color: #787878;
+	background-color: #919191;
 	position: absolute;
 	left: 0px;
 	top: 0px;
 	border: 1px solid black;
+	
+	border-radius: 5px;
+	text-align: center;
 }
-.box.row1 { top: 100px; }
-.box.row2 { top: 200px; }
-.box.col1 { left: 100px; }
-.box.col2 { left: 200px; }
+.box.row1 { top: 110px; }
+.box.row2 { top: 220px; }
+.box.col1 { left: 110px; }
+.box.col2 { left: 220px; }
 .box.selected { background-color: #fff; }
