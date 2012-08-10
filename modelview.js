@@ -1,6 +1,5 @@
 TTT = {
-	Views: {},
-	Models: {},
+	Views: {}, Models: {},
 	players: ['human', 'computer'],
 	letters: ['X', 'O'],
 	numRows: 3,
@@ -16,6 +15,7 @@ TTT.Views.GridView = Backbone.View.extend(
 	events: {
 		"click .box" : "onClickBox",
 		"mouseenter .box" : "onMouseEnter",
+		"mouseover .box" : "onMouseEnter",
 		"mouseleave .box" : "onMouseLeave",
 	},
 
@@ -77,7 +77,7 @@ TTT.Views.GridView = Backbone.View.extend(
 		if (!this.model.get('gameOver')) {
 			var currPlayer = this.model.get('currPlayer');
 			this._letter = TTT.letters[currPlayer];
-			var statusMsg = currPlayer ? 'Computer\'s' : 'Your';
+			var statusMsg = currPlayer ? 'Computer ('+ this.model.get('computerName') +')\'s' : 'Your';
 			this._status.text(statusMsg + ' turn.');
 		}
 	},
@@ -102,20 +102,18 @@ TTT.Views.GridView = Backbone.View.extend(
 				this._status.text('It was a tie.  GG');
 			else if (winnerNum !== TTT.NONE) {
 				var winner = TTT.players[winnerNum];
-				this._status.text('Game over. ' + this.model.get(winner + 'Name') + ' wins!');
+				var msg = (winnerNum === TTT.HUMAN) ? ' win!!  Go humanity!!' : ' wins.  :(';
+				this._status.text('Game over. ' + this.model.get(winner + 'Name') + msg);
 			}
 			else
 				this._status.text('');
 			$(this.el).addClass('disabled');
-			$('button.btn-primary').removeClass('disabled');
 		}
 		else {
 			$(this.el).removeClass('disabled');
 			this.setupPlayer();
 		}
 	}
-
-	
 });
 
 
@@ -128,16 +126,28 @@ TTT.Views.ControlsView = Backbone.View.extend({
 		_.bindAll(this);
 
 		this._playerselect = $('#playerselect');
+		this._button = $('.btn.btn-primary');
+
+		this.model.bind('change:gameOver', this.render);
+	},
+
+	render : function() {
+		if ( this.model.get('gameOver')) {
+			this._button.removeClass('disabled');
+			this._playerselect.removeAttr('disabled');
+		}
 	},
 
 	clickStartGame : function(evt)
 	{
-		// reset model
-		var newGrid = new Array([-1, -1, -1], [-1, -1, -1], [-1, -1, -1]);
-		this.model.set(this.model.defaults);
-		this.model.set({ gameOver: false, grid: newGrid, currPlayer: 1*this._playerselect.val() });
-		$(evt.currentTarget).addClass('disabled');
-		this._playerselect.addClass('disabled');
+		if (! this._button.hasClass('disabled')) {
+			// reset model
+			var newGrid = new Array([-1, -1, -1], [-1, -1, -1], [-1, -1, -1]);
+			this.model.set(this.model.defaults);
+			this.model.set({ gameOver: false, grid: newGrid, currPlayer: 1*this._playerselect.val() });
+			this._button.addClass('disabled');
+			this._playerselect.attr('disabled', 'true');
+		}
 	}
 });
 
@@ -149,7 +159,6 @@ TTT.Models.Game = Backbone.Model.extend(
 		grid: [[-1, -1, -1], [-1, -1, -1], [-1, -1, -1]],
 		numTurns: 0,
 		humanName: 'You',
-		computerName: '',
 		gameOver: true,
 		winner: TTT.NONE
 	},
@@ -169,24 +178,21 @@ TTT.Models.Game = Backbone.Model.extend(
 			this.set('gameOver', true);
 		}
 		else if (this.get('currPlayer') === TTT.COMPUTER)
-			setTimeout(that.doComputerTurn, 1000);
+			setTimeout(that.doComputerTurn, 900);
 	},
 
 	doComputerTurn : function()
 	{
-		// pick random unselected box
-		var rowNum, colNum,
+		var coords,
 			grid = this.get('grid');
 
-		while (true) {
-			rowNum = Math.floor((Math.random()*TTT.numRows)),
-			colNum = Math.floor((Math.random()*TTT.numCols));
-
-			if ( grid[rowNum][colNum] === TTT.NONE )
-				break;
-		}
+		coords = this.winTheGame(TTT.COMPUTER);
+		if (coords.length === 0)
+			coords = this.winTheGame(TTT.HUMAN);		// block Human from winning
+		if (coords.length === 0)
+			coords = this.pickRandomBox();
 		
-		grid[rowNum][colNum] = TTT.COMPUTER;
+		grid[coords[0]][coords[1]] = TTT.COMPUTER;
 		this.unset('grid', { silent: true });
 		this.set({
 			grid: grid,
@@ -201,8 +207,9 @@ TTT.Models.Game = Backbone.Model.extend(
 			return true;
 
 		// check if either player won
+		var grid = this.get('grid');
 		for (var i = 0; i < TTT.players.length; i++) {
-			if ( this.hasWon(i) ) {
+			if ( this.hasWon(i, grid) ) {
 				this.set({ winner: i });
 				return true;
 			}
@@ -212,18 +219,15 @@ TTT.Models.Game = Backbone.Model.extend(
 			this.set('winner', TTT.TIE);
 			return true;
 		}
-			
 	},
 	
-	hasWon : function(playerNum)
+	hasWon : function(playerNum, grid)
 	{
-		var grid = this.get('grid'),
-			byRows = [ [], [], [] ],
+		var byRows = [ [], [], [] ],
 			byCols = [ [], [], [] ],
 			byDiagonals = [ [], [] ];		// [0,0  1,1  2,2]   [0,2  1,1  2,0]
 
 		// categorize player's moves by rows, columns and diagonals
-
 		var row, col;
 		for (row = 0; row < TTT.numRows; row++) {
 			for (col = 0; col < TTT.numCols; col++)
@@ -235,17 +239,14 @@ TTT.Models.Game = Backbone.Model.extend(
 
 					if (row === col || Math.abs(row - col) === 2) {
 						// add to diagonals
-						if (row === col || row === 1) {
+						if (row === col || row === 1)
 							byDiagonals[0].push(true);
-						}
-						if (Math.abs(row - col) === 2 || row === 1) {
+						if (Math.abs(row - col) === 2 || row === 1)
 							byDiagonals[1].push(true);
-						}
 					}
 				}
 			}
 		}
-
 		return this.isFilled([byRows, byCols, byDiagonals]);
 	},
 
@@ -261,8 +262,42 @@ TTT.Models.Game = Backbone.Model.extend(
 			});
 			if (result) return;
 		});
-		
 		return result;
-	}
+	},
 
+	/*  iterate through every spot on the board to see if there
+	 *  is a move that will win the game for the specified player.
+	 */
+	winTheGame : function(playerNum) {
+		var grid = this.get('grid'),
+			row, col;
+		for (row = 0; row < TTT.numRows; row++) {
+			for (col = 0; col < TTT.numCols; col++)
+			{
+				if ( grid[row][col] === TTT.NONE ) {
+					var gridCopy = $.extend(true, [], grid);
+					gridCopy[row][col] = playerNum;
+					if (this.hasWon(playerNum, gridCopy))
+						return [row, col];
+				}
+			}
+		}
+		return [];
+	},
+
+	// pick random unselected box
+	pickRandomBox : function()
+	{
+		var rowNum, colNum,
+			grid = this.get('grid');
+
+		while (true) {
+			rowNum = Math.floor((Math.random()*TTT.numRows)),
+			colNum = Math.floor((Math.random()*TTT.numCols));
+
+			if ( grid[rowNum][colNum] === TTT.NONE )
+				break;
+		}
+		return [rowNum, colNum];
+	}
 });
