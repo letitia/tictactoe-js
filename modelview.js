@@ -55,7 +55,7 @@ TTT.Views.GridView = Backbone.View.extend(
 
 	onClickBox : function(evt)
 	{
-		if (!this.get('gameOver')) {
+		if (!this.model.get('gameOver') && this.model.get('currPlayer') === TTT.HUMAN) {
 			var $box = $(evt.currentTarget),
 				grid = this.model.get('grid');;
 			
