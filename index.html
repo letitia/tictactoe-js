@@ -1,0 +1,49 @@
+<html>
+<head>
+	<link rel="stylesheet" href="styles.css" type="text/css" />
+	<link rel="stylesheet" href="bootstrap.min.css" type="text/css" />
+</head>
+<body>
+	<div id="main">
+		<h1>Tic Tac Toe</h1>
+
+		<p id="controls">
+          	<select id="playerselect">
+            	<option value="0">I want to start first.</option>
+            	<option value="1">The computer can start first.</option>
+          	</select>
+			<button class="btn btn-primary btn-large">Play Game</button>
+		</p>
+
+		<p id="status" class="lead"></p>
+
+		<div id="grid">
+			<div class="box row0 col0" data-row="0" data-col="0"></div>
+			<div class="box row0 col1" data-row="0" data-col="1"></div>
+			<div class="box row0 col2" data-row="0" data-col="2"></div>
+			<div class="box row1 col0" data-row="1" data-col="0"></div>
+			<div class="box row1 col1" data-row="1" data-col="1"></div>
+			<div class="box row1 col2" data-row="1" data-col="2"></div>
+			<div class="box row2 col0" data-row="2" data-col="0"></div>
+			<div class="box row2 col1" data-row="2" data-col="1"></div>
+			<div class="box row2 col2" data-row="2" data-col="2"></div>
+		</div>
+	</div>
+
+<script src="http://code.jquery.com/jquery-1.7.2.min.js" type="text/javascript"></script>
+<script src="underscore-min.js" type="text/javascript"></script>
+<script src="backbone-min.js" type="text/javascript"></script>
+<script src="modelview.js" type="text/javascript"></script>
+<script>
+$(document).ready(function()
+{
+	TTT.game = new TTT.Models.Game();
+	TTT.gridView = new TTT.Views.GridView({ el: '#grid', model: TTT.game });
+	TTT.controlsView = new TTT.Views.ControlsView({ el: '#controls', model: TTT.game });
+
+});
+
+
+</script>
+</body>
+</html>
