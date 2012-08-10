@@ -185,10 +185,9 @@ TTT.Models.Game = Backbone.Model.extend(
 
 	doComputerTurn : function()
 	{
-		var coords,
-			grid = this.get('grid');
+		var grid = this.get('grid');
 
-		coords = this.winTheGame(TTT.COMPUTER);
+		var coords = this.winTheGame(TTT.COMPUTER);
 		if (coords.length === 0)
 			coords = this.winTheGame(TTT.HUMAN);		// block Human from winning
 		if (coords.length === 0)
@@ -216,11 +215,12 @@ TTT.Models.Game = Backbone.Model.extend(
 				return true;
 			}
 		}
-
+		// check if board is full
 		if ( this.get('numTurns') >= TTT.numRows*TTT.numCols ) {
 			this.set('winner', TTT.TIE);
 			return true;
 		}
+		return false;
 	},
 	
 	hasWon : function(playerNum, grid)
