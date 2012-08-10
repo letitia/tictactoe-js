@@ -86,12 +86,12 @@ TTT.Views.GridView = Backbone.View.extend(
 
 	onMouseEnter : function(evt) {
 		var $box = $(evt.currentTarget);
-		if (this.model.get('currPlayer') === TTT.HUMAN && !$box.hasClass('selected'))
+		if (!this.model.get('gameOver') && this.model.get('currPlayer') === TTT.HUMAN && !$box.hasClass('selected'))
 			$box.addClass('selected').text(this._letter);
 	},
 
 	onMouseLeave : function(evt) {
-		if (this.model.get('currPlayer') === TTT.HUMAN)
+		if (!this.model.get('gameOver') && this.model.get('currPlayer') === TTT.HUMAN)
 			this.render();
 	},
 
