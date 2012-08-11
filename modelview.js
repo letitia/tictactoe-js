@@ -185,14 +185,23 @@ TTT.Models.Game = Backbone.Model.extend(
 
 	doComputerTurn : function()
 	{
-		var grid = this.get('grid');
+		var coords, grid = this.get('grid');
 
-		var coords = this.winTheGame(TTT.COMPUTER);
-		if (coords.length === 0)
-			coords = this.winTheGame(TTT.HUMAN);		// block Human from winning
-		if (coords.length === 0)
-			coords = this.pickRandomBox();
-		
+		if (this.get('numTurns') < 2)
+		{
+			// Computer's first move
+			if (grid[1][1] === TTT.NONE)		// take middle spot if available
+				coords = [1, 1];
+			else
+				coords = [0, 0]; 			// if middle taken, take a corner spot
+		}
+		else {
+			coords = this.winTheGame(TTT.COMPUTER);
+			if (coords.length === 0)
+				coords = this.winTheGame(TTT.HUMAN);		// block Human from winning
+			if (coords.length === 0)
+				coords = this.pickRandomBox();
+		}
 		grid[coords[0]][coords[1]] = TTT.COMPUTER;
 		this.unset('grid', { silent: true });
 		this.set({
