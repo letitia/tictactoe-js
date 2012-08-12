@@ -42,13 +42,10 @@ TTT.Views.GridView = Backbone.View.extend(
 			{
 				var player = grid[row][col],
 					$box = $('#grid .box.row'+row+'.col'+col);
-				if (player === TTT.NONE) {
+				if (player === TTT.NONE)
 					$box.removeClass('selected').text('');
-				}
-				else {
+				else
 					$box.addClass('selected').text(TTT.letters[player]);
-				}
-
 			}
 		}
 	},
@@ -170,6 +167,8 @@ TTT.Models.Game = Backbone.Model.extend(
 		computerNames = [ 'C3PO', 'Bender', 'Karel', 'R2D2', 'A Cylon', 'GLaDOS' ];
 		this.set('computerName', computerNames[Math.floor((Math.random()*computerNames.length))]);
 
+		this._corners = [ [0,0], [0,2], [2,0], [2,2] ];
+		this._edges = [ [1,0], [0,1], [2,1], [1,2] ];
 		this.bind('change:currPlayer', this.doTurn);
 	},
 
@@ -187,21 +186,18 @@ TTT.Models.Game = Backbone.Model.extend(
 	{
 		var coords, grid = this.get('grid');
 
-		if (this.get('numTurns') < 2)
-		{
-			// Computer's first move
-			if (grid[1][1] === TTT.NONE)		// take middle spot if available
-				coords = [1, 1];
-			else
-				coords = [0, 0]; 			// if middle taken, take a corner spot
+		if (this.get('numTurns') < 2) {
+			coords = this.makeFirstMove(grid);
 		}
 		else {
 			coords = this.winTheGame(TTT.COMPUTER);
 			if (coords.length === 0)
 				coords = this.winTheGame(TTT.HUMAN);		// block Human from winning
-			if (coords.length === 0)
-				coords = this.pickRandomBox();
+			if (coords.length === 0) {
+				coords = this.damageControl(grid);
+			}
 		}
+
 		grid[coords[0]][coords[1]] = TTT.COMPUTER;
 		this.unset('grid', { silent: true });
 		this.set({
@@ -310,5 +306,42 @@ TTT.Models.Game = Backbone.Model.extend(
 				break;
 		}
 		return [rowNum, colNum];
+	},
+
+	makeFirstMove : function(grid) {
+		if (grid[1][1] === TTT.NONE)		// take middle spot if available
+			return [1, 1];
+		else
+			return this.getAvailableSpot(grid, this._corners);
+	},
+
+	/* take available corners, unless human has you in a  _X|_|__  situation.
+	 *													  __|O|__
+	 *														| |X
+	 */
+	damageControl : function(grid) {
+		var coords,
+			oppHasTwoOppositeCorners = (grid[0][0] ===TTT.HUMAN && grid[2][2] ===TTT.HUMAN)
+			|| (grid[0][2] ===TTT.HUMAN && grid[2][0] ===TTT.HUMAN);
+
+		if (grid[1][1] === TTT.COMPUTER && oppHasTwoOppositeCorners)
+			return this.getAvailableSpot(grid, this._edges);
+		else {
+			coords = this.getAvailableSpot(grid, this._corners);
+			if (coords.length === 0)
+				coords = this.getAvailableSpot(grid, this._edges);
+			return coords;
+		}
+	},
+
+	getAvailableSpot : function(grid, spots) {
+		for (var i = 0; i < spots.length; i++) {
+			var spot = spots[i],
+				row = spot[0],
+				col = spot[1];
+			if (grid[row][col] === TTT.NONE)
+				return spot;
+		}
+		return [];
 	}
 });
